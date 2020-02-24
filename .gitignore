@@ -1,0 +1,7 @@
+mnist/
+stl10/
+
+__pycache__
+*.pth
+*~
+*.png
