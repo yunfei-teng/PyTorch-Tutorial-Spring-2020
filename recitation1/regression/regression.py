@@ -8,6 +8,8 @@ import torch.nn.functional as F
 import torch.optim as optim
 from torch.autograd import Variable
 
+import matplotlib.pyplot as plt
+
 #---------- Generate Target Polynomial Function ----------#
 # A polynomial function: y = w_1* x^1 + w_2* x^2 + ... + w_n* x^n + b
 # Learnable parameters: w_1, w_2, ..., w_n, b
@@ -26,7 +28,7 @@ def f(x):
     '''Approximated function.'''
     return x.mm(w_target) + b_target[0]
 
-def poly_desc(W, b):
+def print_poly(W, b):
     """Creates a string description of a polynomial."""
     result = 'y = '
     for i, w in enumerate(W):
@@ -62,6 +64,7 @@ optimizer_nn = optim.SGD(model_nn.parameters(), lr = 0.1, momentum=0.0)
 
 #---------- Train ----------#
 # Linear Model
+torch.manual_seed(24)
 for batch_idx_poly in count(1):
 
     # Generate training data
@@ -82,6 +85,7 @@ for batch_idx_poly in count(1):
         break
 
 # Non-Linear Model
+torch.manual_seed(24)
 for batch_idx_nn in count(1):
 
     # Generate training data
@@ -103,17 +107,35 @@ for batch_idx_nn in count(1):
 
 #---------- Print ----------#
 # Linear Model
+torch.manual_seed(32)
 batch_x, batch_y = get_batch_poly(1000)
 output = model_poly(batch_x)                     
 loss_data = F.smooth_l1_loss(output, batch_y).item()
 print('-----Linear approximation-----')
 print('Loss: {:.6f} after {} batches'.format(loss_data, batch_idx_poly))
-print('==> Learned function:\t' + poly_desc(model_poly.weight.data.view(-1), model_poly.bias.data))
-print('==>  Actual function:\t' + poly_desc(w_target.view(-1), b_target))
+print('==> Learned function:\t' + print_poly(model_poly.weight.data.view(-1), model_poly.bias.data))
+print('==>  Actual function:\t' + print_poly(w_target.view(-1), b_target))
 
 # Non-Linear Model
+torch.manual_seed(32)
 batch_x, batch_y = get_batch_nn(1000)
 output = model_nn(batch_x)                     
 loss_data = F.smooth_l1_loss(output, batch_y).item()
 print('-----Non-Linear approximation-----')
 print('Loss: {:.6f} after {} batches'.format(loss_data, batch_idx_nn))
+
+points = torch.arange(-1, 1.1, 0.1)
+features = make_features(points)
+y1, y2, y3 = [], [], []
+for i in range(len(points)):
+    y1 += [f(features[i].unsqueeze(0)).item()]
+    y2 += [model_poly(features[i].unsqueeze(0)).item()]
+    y3 += [model_nn(points[i].unsqueeze(0)).item()]
+
+plt.figure()
+plt.plot(points, y1, label='ground truth')
+plt.plot(points, y2, label='polynomial approximation')
+plt.plot(points, y3, label= 'nn approximation')
+plt.grid(True)
+plt.legend()
+plt.show()
