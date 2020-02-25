@@ -9,7 +9,7 @@ Pytorch 1.4
 ## Notes:
 We have 2 recitations in total:
 1. Intro to Python and PyTorch; Basics up to defining the model and training (different optimizations, setting up batch size and learning rate) and staff necessary to do classification on MNIST with fully-connected and convolutions layers and simple regression;
-2. GANs, ResNets, autoencoders, VisualBackProp, skipped connections, batch normalization, examples of classification and segmentation.
+2. GANs, ResNets, VisualBackProp, autoencoders, skipped connections and batch normalization.
 
 ### Recitation 1:
 1. regression: regression for polynomial functions.
