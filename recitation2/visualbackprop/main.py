@@ -2,7 +2,7 @@
 # main.py: trainig neural networks for MNIST classification
 import time, datetime
 from options import parser
-from models import Autoencoder
+from models import ConvNet
 
 import torch
 import torch.nn.functional as F
@@ -11,13 +11,36 @@ import torchvision.utils as utils
 from torch.autograd import Variable
 from torchvision import datasets, transforms
 
+def visual_backprop(input, model, n_layers=3):
+    ''' VisualBackprop '''
+    masks = []
+    x = input
+    up_sample = torch.nn.Upsample(scale_factor=2)
+    for idx, layer in enumerate(model.net):
+        x = layer(x)
+        _mask = x.mean(dim=1, keepdim = True)
+        _max = torch.max(_mask, dim = 3, keepdim = True)[0]
+        _max = torch.max(_max,  dim = 2, keepdim = True)[0]
+        _min = torch.min(_mask, dim = 3, keepdim = True)[0]
+        _min = torch.min(_min,  dim = 2, keepdim = True)[0]
+
+        mask = (_mask - _min) / (_max - _min)
+        masks += [mask]
+        if idx >= n_layers:
+            break
+    cur_mask = masks[n_layers]
+    for idx in range(n_layers-1, -1, -1):
+        cur_mask = up_sample(cur_mask)* masks[idx]
+    masked_input = cur_mask.repeat(1, 3, 1, 1) * input
+    return masked_input
+
 def get_dataloaders(args):
     ''' define training and testing data loader'''
     print('---Loading Data---')
     # load trainig data loader
     kwargs = {'num_workers': 4, 'pin_memory': True} if args.use_cuda else {}
     train_loader = torch.utils.data.DataLoader(
-            datasets.STL10('../Data/stl10', split='train', download=True, 
+            datasets.STL10('../Data/stl10', split='train', download=F, 
                             transform = transforms.Compose([
                             transforms.Resize(128),
                             transforms.RandomHorizontalFlip(),
@@ -41,8 +64,7 @@ def get_dataloaders(args):
 
 def get_model(args):
     ''' define model '''
-    use_unet = True if args.model == 'UNet' else False
-    model = Autoencoder(use_unet)
+    model = ConvNet(use_batch_norm=True, use_resnet=False)
             
     print('---Model Information---')
     print('Net:', model)
@@ -66,7 +88,7 @@ def train(args, model, optimizer, train_loader, epoch):
         data, target = data.to(args.device), target.to(args.device)
         optimizer.zero_grad()
         output = model(data)
-        loss = F.mse_loss(output, data)
+        loss = F.nll_loss(output, target)
         loss.backward()
         optimizer.step()
         if batch_idx % args.log_interval == 0:
@@ -83,13 +105,19 @@ def test(args, model, test_loader):
         for data, target in test_loader:
             data, target = data.to(args.device), target.to(args.device)
             output = model(data)
-            test_loss += data.size(0)* F.mse_loss(output, data).item()
+            test_loss += F.nll_loss(output, target, reduction='sum').item() # sum up batch loss
+            pred = output.data.max(1, keepdim=True)[1] # get the index of the max log-probability
+            correct += pred.eq(target.data.view_as(pred)).cpu().sum()
 
     test_loss /= len(test_loader.dataset)
-    print('Test set: Average loss: {:.4f}'.format(test_loss))
-    utils.save_image(data.data, 'origin_pictures.png', normalize=True, scale_each=False)
-    utils.save_image(output.data,'reconstruct_pictures.png', normalize=True, scale_each=False)
-        
+    print('Test set: Average loss: {:.4f}, Accuracy: {}/{} ({:.0f}%)'.format(
+           test_loss, correct, len(test_loader.dataset),
+           100. * correct / len(test_loader.dataset)))
+
+    masked_data = visual_backprop(data, model, n_layers=3)
+    utils.save_image(data.data, 'origin_pictures.png', normalize=True, scale_each=True)
+    utils.save_image(masked_data.data, 'visbackprop_pictures.png', normalize=True, scale_each=True)
+
 if __name__ == '__main__':
     start_time = datetime.datetime.now().replace(microsecond=0)
     print('[Starte at %s]'%start_time)
@@ -101,10 +129,11 @@ if __name__ == '__main__':
     train_loader, test_loader = get_dataloaders(args)
     model = get_model(args)
     optimizer = get_optimizer(args, model)
-    
+    scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=10, gamma=0.1)
     print('\n--- Training ---')
     for epoch in range(1, args.epochs + 1):
         train(args, model, optimizer, train_loader, epoch)
         test(args, model, test_loader)
+        scheduler.step()
         current_time = datetime.datetime.now().replace(microsecond=0)
         print('Time Interval:', current_time - start_time, '\n')
