@@ -15,6 +15,10 @@ We have 2 recitations in total:
 1. regression: regression for polynomial functions.
 2. classification: MNIST digits classification.
 
+### Recitation 2:
+1. autoencder: autoencoder + Unet.
+2. visualbackprop: STL10 image classification + ResNet + VisualBackProp.
+3. gan: generative adversarial nets.
 
 ## Requirments
 Please install [PyTorch](http://pytorch.org/) as indicated. Please be careful about the *version* of Python, PyTorch and Cuda. I strongly recommend Python3 instead of Python2. Before you run the codes, check whether your machine supports GPU or not.
