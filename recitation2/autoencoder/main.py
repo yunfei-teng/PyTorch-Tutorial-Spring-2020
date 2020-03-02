@@ -92,7 +92,7 @@ def test(args, model, test_loader):
         
 if __name__ == '__main__':
     start_time = datetime.datetime.now().replace(microsecond=0)
-    print('[Starte at %s]'%start_time)
+    print('[Start at %s]'%start_time)
     args = parser.parse_args()
     use_cuda = not args.no_cuda and torch.cuda.is_available()
     args.use_cuda = use_cuda
